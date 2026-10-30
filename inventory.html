@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory — MedInventory</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="app-wrapper">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">💊</div>
+      <span>MedInventory</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Main</div>
+      <a class="nav-item" data-path="/dashboard" href="/dashboard"><span class="nav-icon">📊</span> Dashboard</a>
+      <a class="nav-item" data-path="/inventory" href="/inventory"><span class="nav-icon">💊</span> Inventory</a>
+      <a class="nav-item" data-path="/sales" href="/sales"><span class="nav-icon">🧾</span> Sales & Billing</a>
+      <a class="nav-item" data-path="/suppliers" href="/suppliers"><span class="nav-icon">🚚</span> Suppliers</a>
+      <div class="nav-section-title" style="margin-top:12px;">Analytics</div>
+      <a class="nav-item" data-path="/reports" href="/reports"><span class="nav-icon">📈</span> Reports</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar">{{ username[0]|upper }}</div>
+        <div class="user-info">
+          <div class="user-name">{{ username }}</div>
+          <div class="user-role">{{ role|capitalize }}</div>
+        </div>
+        <button class="btn-logout" onclick="logout()">⏻</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-content">
+    <header class="topbar">
+      <span class="topbar-title">Inventory Management</span>
+    </header>
+
+    <div class="page-body">
+      <div class="card">
+        <div class="card-header">
+          <div class="toolbar">
+            <div class="search-bar">
+              <span>🔍</span>
+              <input type="text" id="search-input" placeholder="Search medicines…" oninput="filterMedicines()">
+            </div>
+            <select class="form-control" id="filter-select" onchange="filterMedicines()" style="width:auto;">
+              <option value="">All Medicines</option>
+              <option value="low_stock">Low Stock</option>
+              <option value="expiring">Expiring Soon</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
+          {% if role == 'admin' %}
+          <button class="btn btn-primary" onclick="openAddModal()">+ Add Medicine</button>
+          {% endif %}
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Supplier</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Expiry</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="inventory-tbody">
+              <tr><td colspan="8" style="text-align:center; padding:30px;">
+                <div class="spinner"></div>
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Add/Edit Medicine Modal ── -->
+<div class="modal-overlay" id="medicine-modal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">Add Medicine</span>
+      <button class="modal-close" onclick="closeModal('medicine-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="med-id">
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>Medicine Name *</label>
+          <input type="text" id="med-name" class="form-control" placeholder="e.g. Paracetamol 500mg">
+        </div>
+        <div class="form-group">
+          <label>Generic Name</label>
+          <input type="text" id="med-generic" class="form-control" placeholder="e.g. Paracetamol">
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <input type="text" id="med-category" class="form-control" list="categories-list" placeholder="e.g. Antibiotic">
+          <datalist id="categories-list">
+            <option value="Analgesic"><option value="Antibiotic"><option value="Antacid">
+            <option value="Antihistamine"><option value="Antidiabetic"><option value="Vitamin">
+            <option value="NSAID"><option value="Cholesterol"><option value="Cough Suppressant">
+          </datalist>
+        </div>
+        <div class="form-group">
+          <label>Unit</label>
+          <select id="med-unit" class="form-control">
+            <option value="tablet">Tablet</option>
+            <option value="capsule">Capsule</option>
+            <option value="bottle">Bottle</option>
+            <option value="syrup">Syrup</option>
+            <option value="injection">Injection</option>
+            <option value="cream">Cream</option>
+            <option value="pcs">Pcs</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Quantity *</label>
+          <input type="number" id="med-quantity" class="form-control" min="0" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>Reorder Level</label>
+          <input type="number" id="med-reorder" class="form-control" min="0" value="10">
+        </div>
+        <div class="form-group">
+          <label>Selling Price (₹) *</label>
+          <input type="number" id="med-price" class="form-control" step="0.01" min="0" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label>Cost Price (₹)</label>
+          <input type="number" id="med-cost" class="form-control" step="0.01" min="0" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label>Expiry Date</label>
+          <input type="date" id="med-expiry" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Supplier</label>
+          <select id="med-supplier" class="form-control">
+            <option value="">— Select Supplier —</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="med-description" class="form-control" rows="2" placeholder="Optional notes"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('medicine-modal')">Cancel</button>
+      <button class="btn btn-primary" id="save-btn" onclick="saveMedicine()">Save Medicine</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script>
+  const ROLE = '{{ role }}';
+  let allMedicines = [];
+  let suppliers    = [];
+
+  // Paginator instance (global so pagination buttons work)
+  let pager = new Paginator({
+    containerId:  'inventory-tbody',
+    paginationId: 'pagination',
+    pageSize: 20,
+    renderFn: renderRow
+  });
+
+  function renderRow(m) {
+    const actions = ROLE === 'admin' ? `
+      <button class="btn btn-icon btn-warning" title="Edit" onclick="openEditModal(${m.id})">✏</button>
+      <button class="btn btn-icon btn-danger"  title="Delete" onclick="deleteMedicine(${m.id}, '${escapeHtml(m.name)}')">🗑</button>
+    ` : '—';
+
+    return `
+      <tr>
+        <td>${m.id}</td>
+        <td>
+          <strong>${escapeHtml(m.name)}</strong>
+          ${m.generic_name ? `<br><small style="color:#999">${escapeHtml(m.generic_name)}</small>` : ''}
+        </td>
+        <td>${m.category ? `<span class="badge badge-info">${escapeHtml(m.category)}</span>` : '—'}</td>
+        <td>${escapeHtml(m.supplier_name || '—')}</td>
+        <td>${stockBadge(m.quantity, m.reorder_level)}</td>
+        <td>${formatCurrency(m.price)}</td>
+        <td>${expiryBadge(m.expiry_date)}</td>
+        <td><div class="td-actions">${actions}</div></td>
+      </tr>`;
+  }
+
+  async function loadMedicines() {
+    try {
+      const params = buildParams();
+      allMedicines = await API.get(`/api/inventory${params}`);
+      applyLocalFilter();
+    } catch (err) {
+      showToast('Error loading medicines: ' + err.message, 'error');
+    }
+  }
+
+  function buildParams() {
+    const filter = document.getElementById('filter-select').value;
+    const search = document.getElementById('search-input').value.trim();
+    const p = [];
+    if (search) p.push('search=' + encodeURIComponent(search));
+    if (filter === 'low_stock') p.push('low_stock=1');
+    if (filter === 'expiring')  p.push('expiring=1');
+    return p.length ? '?' + p.join('&') : '';
+  }
+
+  function filterMedicines() {
+    // Re-fetch with server filters for search/low_stock/expiring
+    // For "expired" we filter client-side
+    const filter = document.getElementById('filter-select').value;
+    if (filter === 'expired') {
+      loadMedicines(); // load all then filter
+    } else {
+      loadMedicines();
+    }
+  }
+
+  function applyLocalFilter() {
+    const filter = document.getElementById('filter-select').value;
+    let data = allMedicines;
+    if (filter === 'expired') {
+      const today = new Date(); today.setHours(0,0,0,0);
+      data = data.filter(m => m.expiry_date && new Date(m.expiry_date) < today);
+    }
+    pager.setData(data);
+  }
+
+  async function loadSuppliers() {
+    try {
+      suppliers = await API.get('/api/suppliers');
+      const sel = document.getElementById('med-supplier');
+      suppliers.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        sel.appendChild(opt);
+      });
+    } catch (_) {}
+  }
+
+  function openAddModal() {
+    document.getElementById('modal-title').textContent = 'Add Medicine';
+    document.getElementById('med-id').value       = '';
+    document.getElementById('med-name').value     = '';
+    document.getElementById('med-generic').value  = '';
+    document.getElementById('med-category').value = '';
+    document.getElementById('med-unit').value     = 'tablet';
+    document.getElementById('med-quantity').value = '';
+    document.getElementById('med-reorder').value  = '10';
+    document.getElementById('med-price').value    = '';
+    document.getElementById('med-cost').value     = '';
+    document.getElementById('med-expiry').value   = '';
+    document.getElementById('med-supplier').value = '';
+    document.getElementById('med-description').value = '';
+    openModal('medicine-modal');
+  }
+
+  async function openEditModal(id) {
+    try {
+      const m = await API.get(`/api/inventory/${id}`);
+      document.getElementById('modal-title').textContent   = 'Edit Medicine';
+      document.getElementById('med-id').value              = m.id;
+      document.getElementById('med-name').value            = m.name;
+      document.getElementById('med-generic').value         = m.generic_name  || '';
+      document.getElementById('med-category').value        = m.category      || '';
+      document.getElementById('med-unit').value            = m.unit          || 'tablet';
+      document.getElementById('med-quantity').value        = m.quantity;
+      document.getElementById('med-reorder').value         = m.reorder_level;
+      document.getElementById('med-price').value           = m.price;
+      document.getElementById('med-cost').value            = m.cost_price    || '';
+      document.getElementById('med-expiry').value          = m.expiry_date   || '';
+      document.getElementById('med-supplier').value        = m.supplier_id   || '';
+      document.getElementById('med-description').value     = m.description   || '';
+      openModal('medicine-modal');
+    } catch (err) {
+      showToast('Failed to load medicine: ' + err.message, 'error');
+    }
+  }
+
+  async function saveMedicine() {
+    const btn = document.getElementById('save-btn');
+    const id  = document.getElementById('med-id').value;
+
+    const payload = {
+      name:         document.getElementById('med-name').value.trim(),
+      generic_name: document.getElementById('med-generic').value.trim(),
+      category:     document.getElementById('med-category').value.trim(),
+      unit:         document.getElementById('med-unit').value,
+      quantity:     parseInt(document.getElementById('med-quantity').value),
+      reorder_level:parseInt(document.getElementById('med-reorder').value),
+      price:        parseFloat(document.getElementById('med-price').value),
+      cost_price:   parseFloat(document.getElementById('med-cost').value) || 0,
+      expiry_date:  document.getElementById('med-expiry').value || null,
+      supplier_id:  document.getElementById('med-supplier').value || null,
+      description:  document.getElementById('med-description').value.trim()
+    };
+
+    // Frontend validation
+    if (!payload.name) { showToast('Medicine name is required', 'error'); return; }
+    if (isNaN(payload.quantity) || payload.quantity < 0) { showToast('Invalid quantity', 'error'); return; }
+    if (isNaN(payload.price) || payload.price < 0)      { showToast('Invalid price', 'error'); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      if (id) {
+        await API.put(`/api/inventory/${id}`, payload);
+        showToast('Medicine updated successfully!', 'success');
+      } else {
+        await API.post('/api/inventory', payload);
+        showToast('Medicine added successfully!', 'success');
+      }
+      closeModal('medicine-modal');
+      loadMedicines();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Medicine';
+    }
+  }
+
+  async function deleteMedicine(id, name) {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    try {
+      await API.delete(`/api/inventory/${id}`);
+      showToast('Medicine deleted.', 'success');
+      loadMedicines();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  // ── Init ──
+  // Check URL params for pre-set filters
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('filter')) {
+    document.getElementById('filter-select').value = urlParams.get('filter');
+  }
+
+  loadSuppliers();
+  loadMedicines();
+</script>
+</body>
+</html>

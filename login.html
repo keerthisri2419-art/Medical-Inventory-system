@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — MedInventory</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="icon">💊</div>
+      <h1>MedInventory</h1>
+      <p>Medical Store Management System</p>
+    </div>
+
+    <div id="alert-box" style="display:none"></div>
+
+    <div class="login-form">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" class="form-control" placeholder="Enter username" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" class="form-control" placeholder="Enter password" autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary login-btn" id="login-btn" onclick="doLogin()">
+        Sign In
+      </button>
+    </div>
+
+    <p style="text-align:center; margin-top:20px; font-size:12px; color:#999;">
+      Default: admin / admin123 &nbsp;|&nbsp; staff1 / staff123
+    </p>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script>
+  // Press Enter to login
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  async function doLogin() {
+    const btn      = document.getElementById('login-btn');
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const alertBox = document.getElementById('alert-box');
+
+    alertBox.style.display = 'none';
+
+    if (!username || !password) {
+      showAlert('Please enter username and password.', 'danger');
+      return;
+    }
+
+    btn.disabled   = true;
+    btn.textContent = 'Signing in…';
+
+    try {
+      const data = await API.post('/api/auth/login', { username, password });
+      if (data.success) {
+        window.location.href = '/dashboard';
+      }
+    } catch (err) {
+      showAlert(err.message || 'Login failed. Please try again.', 'danger');
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = 'Sign In';
+    }
+  }
+
+  function showAlert(msg, type) {
+    const box = document.getElementById('alert-box');
+    box.style.display = 'flex';
+    box.className  = `alert alert-${type}`;
+    box.textContent = msg;
+  }
+</script>
+</body>
+</html>
